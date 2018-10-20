@@ -39,8 +39,11 @@ typedef struct conVar_s {
 	struct conVar_s* next;
 } conVar_t;
 
+
+mtx_t conLock;
 conCmd_t* firstConCmd = NULL;
 conCmd_t* lastConCmd = NULL;
+
 conVar_t* firstConVar = NULL;
 conVar_t* lastConVar = NULL;
 
@@ -55,24 +58,28 @@ bool IsInteger( char* str ) {
 conVar_t* ConVar( char* name ) {
 	conVar_t* var;
 
+	mtx_lock( &conLock );
 	for ( var = firstConVar; ( var != NULL ); var = var->next ) {
-
 		if ( !strncmp( var->name, name, 32 ) ) {
+			mtx_unlock( &conLock );
 			return var;
 		}
 	}
+	mtx_unlock( &conLock );
 	return NULL;
 }
 
 conCmd_t* ConCmd( char* name ) {
 	conCmd_t* cmd;
 
+	mtx_lock( &conLock );
 	for ( cmd = firstConCmd; ( cmd != NULL ); cmd = cmd->next ) {
-
 		if ( !strncmp( cmd->name, name, 32 ) ) {
+			mtx_unlock( &conLock );
 			return cmd;
 		}
 	}
+	mtx_unlock( &conLock );
 	return NULL;
 }
 
@@ -84,6 +91,8 @@ void ConCmd_Set( int argc, char** argv ) {
 		return;
 	}
 	
+	mtx_lock( &conLock );
+
 	var = ConVar( argv[1] );
 
 	if ( var == NULL ) {
@@ -115,17 +124,18 @@ void ConCmd_Set( int argc, char** argv ) {
 		var->asString = malloc( strlen( argv[2] ) );
 		strcpy( var->asString, argv[2] );
 	}
+	mtx_unlock( &conLock );
 }
 
 /***************************************************************************\
 ConEval
 
-	Takes a line, parses	for ( var = firstConVar; ( var != NULL ); var = var->next ) { it into a command and arguments, and tries to find
+	Takes a line, parses it into a command and arguments, and tries to find
 	and run that command. If the command does not exist, tries to find a 
-	variable by that nam		if ( !strncmp( var->name, argv[1], 32 ) ) {e. If it does, and there are no arguments, prints
-	that variable. If th			break;ere is exactly one argument, sets that variable.
-		}
-	Succeeds for all the	} above cases, for any other case returns failure.
+	variable by that name. If it does, and there are no arguments, prints
+	that variable. If there is exactly one argument, sets that variable.
+
+	Succeeds for all the above cases, for any other case returns failure.
 
 	Caller is expected to free char* line.
 \***************************************************************************/
@@ -145,6 +155,8 @@ lsuccess_t ConEval( char* line ) {
 		}
 	}
 
+
+	mtx_lock( &conLock );
 	c = ConCmd( cmd_argv[0] );
 	if ( c ) {
 		c->func( cmd_argc, cmd_argv );
@@ -152,6 +164,7 @@ lsuccess_t ConEval( char* line ) {
 		v = ConVar( cmd_argv[0] );
 		if ( !v ) {
 			printf( "no such command or variable: %s\n", cmd_argv[0] );
+			mtx_unlock( &conLock );
 			return false;
 		}
 		if ( cmd_argc == 0 ) {
@@ -159,9 +172,9 @@ lsuccess_t ConEval( char* line ) {
 				printf( "%s = %i\n", v->name, v->asInt );
 			} else if ( v->type == VAR_TYPE_BOOL ) {
 				if ( v->asBool == true ) {
-					printf( "%s = true\n" );
+					printf( "%s = true\n", v->name );
 				} else {
-					printf( "%s = false\n" );
+					printf( "%s = false\n", v->name );
 				}
 			} else {
 				printf( "%s = \"%s\"\n", v->name, v->asString );
@@ -173,7 +186,7 @@ lsuccess_t ConEval( char* line ) {
 			ConCmd_Set( 2, cmd_argv );
 		}
 	}
-
+	mtx_unlock( &conLock );
 	return true;
 }
 
@@ -183,11 +196,15 @@ void ConAddCmd( char* name, void (*func)( int argc, char** argv ) ) {
 	cmd->name = name;
 	cmd->func = func;
 
+	mtx_lock( &conLock );
+
 	if ( lastConCmd )
 		lastConCmd->next = cmd;
 	else
 		firstConCmd = cmd;
 	lastConCmd = cmd;
+
+	mtx_unlock( &conLock );
 }
 
 void ConInit( void ) {
@@ -195,6 +212,8 @@ void ConInit( void ) {
 	char str[256];
 
 	ConAddCmd( "set", ConCmd_Set );
+
+	mtx_init( &conLock, mtx_plain | mtx_recursive );
 
 	if ( !conf ) {
 		printf( "Couldn't open config.cfg\n" );
