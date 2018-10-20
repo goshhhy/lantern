@@ -22,7 +22,8 @@ typedef struct conCmd_s {
 
 typedef enum {
 	VAR_TYPE_STRING,
-	VAR_TYPE_INTEGER
+	VAR_TYPE_INTEGER,
+	VAR_TYPE_BOOL
 } varType_t;
 
 typedef struct conVar_s {
@@ -30,8 +31,9 @@ typedef struct conVar_s {
 
 	varType_t type;
 	union {
-		char* asChar;
+		char* asString;
 		int asInt;
+		bool asBool;
 	};
 	
 	struct conVar_s* next;
@@ -93,15 +95,25 @@ void ConCmd_Set( int argc, char** argv ) {
 		lastConVar = var;
 		var->name = malloc( MAX_VAR_LENGTH );
 		strncpy( var->name, argv[1], MAX_VAR_LENGTH );
+	} else {
+		if ( var->type == VAR_TYPE_STRING ) {
+			free( var->asString );
+		}
 	}
 
 	if ( IsInteger( argv[2]) ) {
 		var->type = VAR_TYPE_INTEGER;
 		var->asInt = atoi( argv[2] );
+	} else if ( strcmp( "true", argv[2] ) ) {
+		var->type = VAR_TYPE_BOOL;
+		var->asBool = true;
+	} else if ( !strcmp( "false" , argv[2] ) ) {
+		var->type = VAR_TYPE_BOOL;
+		var->asBool = false;
 	} else {
 		var->type = VAR_TYPE_STRING;
-		var->asChar = malloc( strlen( argv[2] ) );
-		strcpy( var->asChar, argv[2] );
+		var->asString = malloc( strlen( argv[2] ) );
+		strcpy( var->asString, argv[2] );
 	}
 }
 
@@ -146,7 +158,7 @@ lsuccess_t ConEval( char* line ) {
 			if ( v->type == VAR_TYPE_INTEGER ) {
 				printf( "%s = %i\n", v->name, v->asInt );
 			} else {
-				printf( "%s = \"%s\"\n", v->name, v->asChar );
+				printf( "%s = \"%s\"\n", v->name, v->asString );
 			}
 		} else if ( cmd_argc == 1 ) {
 			cmd_argv[2] = cmd_argv[1];
