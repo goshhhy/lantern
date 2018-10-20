@@ -104,7 +104,7 @@ void ConCmd_Set( int argc, char** argv ) {
 	if ( IsInteger( argv[2]) ) {
 		var->type = VAR_TYPE_INTEGER;
 		var->asInt = atoi( argv[2] );
-	} else if ( strcmp( "true", argv[2] ) ) {
+	} else if ( !strcmp( "true", argv[2] ) ) {
 		var->type = VAR_TYPE_BOOL;
 		var->asBool = true;
 	} else if ( !strcmp( "false" , argv[2] ) ) {
@@ -157,6 +157,12 @@ lsuccess_t ConEval( char* line ) {
 		if ( cmd_argc == 0 ) {
 			if ( v->type == VAR_TYPE_INTEGER ) {
 				printf( "%s = %i\n", v->name, v->asInt );
+			} else if ( v->type == VAR_TYPE_BOOL ) {
+				if ( v->asBool == true ) {
+					printf( "%s = true\n" );
+				} else {
+					printf( "%s = false\n" );
+				}
 			} else {
 				printf( "%s = \"%s\"\n", v->name, v->asString );
 			}
