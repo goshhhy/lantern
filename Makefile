@@ -1,5 +1,7 @@
- CFLAGS ?= -Wall -g -Og
+CFLAGS ?= -Wall -g -Og
 CFLAGS_ENV := $(CFLAGS)
+
+LIBS	:= $(shell pkg-config --static --libs glfw3) -lGL
 
 OUT := lantern
 
