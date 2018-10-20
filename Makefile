@@ -11,4 +11,4 @@ $(OUT): src/*.c
 	$(CC) -o $(OUT) src/*.c $(LIBS) $(CFLAGS)
 
 clean:
-	rm $(OUT)
+	rm $(OUT) 
